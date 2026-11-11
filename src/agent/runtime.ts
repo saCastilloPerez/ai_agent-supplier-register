@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { proveedorTools, type Mapeo, type ResumenPaquete, type ToolContext } from '../tools/proveedor.js'
+import { proveedorTools, type CampoSolicitado, type Mapeo, type ResumenPaquete, type ToolContext } from '../tools/proveedor.js'
 import type { LlmAdapter, Message, ToolCallBlock, ToolResultBlock, ToolSpec } from '../llm/adapter.js'
 
 export type VisibleToolCall = { name: string; arguments: unknown; result: unknown }
 export type HistoryItem = { role: 'user' | 'assistant' | 'tool'; content: string; toolCall?: VisibleToolCall; needsConfirmation?: boolean }
-type Session = { messages: Message[]; history: HistoryItem[]; mappings: Map<string, Mapeo>; usedTokens: number; pendingCase?: string; busy: boolean }
+type Session = { messages: Message[]; history: HistoryItem[]; fields: Map<string, CampoSolicitado[]>; mappings: Map<string, Mapeo>; usedTokens: number; pendingCase?: string; busy: boolean }
 export type ChatResponse = { reply: string; toolCalls: VisibleToolCall[]; needsConfirmation: boolean }
 
 type RuntimeOptions = { directory: string; maxIterations: number; maxSessionTokens: number }
@@ -55,7 +55,7 @@ export class AgentRuntime {
 
   private getSession(id: string): Session {
     let session = this.sessions.get(id)
-    if (!session) { session = { messages: [], history: [], mappings: new Map(), usedTokens: 0, busy: false }; this.sessions.set(id, session) }
+    if (!session) { session = { messages: [], history: [], fields: new Map(), mappings: new Map(), usedTokens: 0, busy: false }; this.sessions.set(id, session) }
     return session
   }
 
@@ -113,11 +113,16 @@ export class AgentRuntime {
         const results: ToolResultBlock[] = []
         for (const call of calls) {
           const result = await this.executeTool(call, sessionId)
-          const resultData = JSON.parse(result) as { ok: boolean; data?: unknown }
+          const resultData = JSON.parse(result) as ToolResult
           const input = z.object({ caso: z.string() }).safeParse(call.input)
+          if (call.name === 'proveedor_leer_solicitud' && resultData.ok && input.success) {
+            const fields = z.array(z.object({ etiqueta: z.string(), obligatorio: z.boolean(), hoja: z.string().optional(), celda_etiqueta: z.string().optional(), celda_valor: z.string().optional(), requiere_confirmacion: z.boolean().optional(), equivalente_pais: z.string().optional() })).safeParse((resultData.data as { campos?: unknown })?.campos)
+            if (fields.success) session.fields.set(input.data.caso, fields.data)
+          }
           if (call.name === 'proveedor_mapear_campos' && resultData.ok && input.success) session.mappings.set(input.data.caso, resultData.data as Mapeo)
           const trustedMapping = call.name === 'proveedor_generar_formulario' && input.success ? session.mappings.get(input.data.caso) : undefined
-          const visibleArgs = trustedMapping && input.success ? { caso: input.data.caso, mapeo: trustedMapping } : call.input
+          const trustedFields = call.name === 'proveedor_mapear_campos' && input.success ? session.fields.get(input.data.caso) : undefined
+          const visibleArgs = trustedMapping && input.success ? { caso: input.data.caso, mapeo: trustedMapping } : trustedFields && input.success ? { caso: input.data.caso, campos: trustedFields } : call.input
           const visible = { name: call.name, arguments: visibleArgs, result: resultData }
           toolCalls.push(visible)
           session.history.push({ role: 'tool', content: result, toolCall: visible })
@@ -139,8 +144,10 @@ export class AgentRuntime {
     const name = call.name.replace(/^proveedor_/, '') as keyof typeof proveedorTools
     const tool = proveedorTools[name]
     const requestedCase = z.object({ caso: z.string() }).safeParse(call.input)
-    const trustedMapping = name === 'generar_formulario' && requestedCase.success ? this.getSession(sessionId).mappings.get(requestedCase.data.caso) : undefined
-    const args = trustedMapping && requestedCase.success ? { caso: requestedCase.data.caso, mapeo: trustedMapping } : call.input
+    const session = this.getSession(sessionId)
+    const trustedMapping = name === 'generar_formulario' && requestedCase.success ? session.mappings.get(requestedCase.data.caso) : undefined
+    const trustedFields = name === 'mapear_campos' && requestedCase.success ? session.fields.get(requestedCase.data.caso) : undefined
+    const args = trustedMapping && requestedCase.success ? { caso: requestedCase.data.caso, mapeo: trustedMapping } : trustedFields && requestedCase.success ? { caso: requestedCase.data.caso, campos: trustedFields } : call.input
     const input = tool ? z.object(tool.args).safeParse(args) : null
     if (!tool || !input?.success || name === 'simular_envio') {
       const error = name === 'simular_envio' ? 'requiere confirmación explícita en el turno inmediatamente anterior' : 'Herramienta o argumentos inválidos.'

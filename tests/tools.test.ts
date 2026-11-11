@@ -96,6 +96,38 @@ test('el chat usa el mapeo verificado de su sesión aunque el modelo altere valo
   assert.equal(args.mapeo.llenos[0].valor, 'Periferia IT Group S.A.S.')
 })
 
+test('el chat usa los campos originales de la solicitud aunque el modelo omita uno', async () => {
+  const ctx = await context(), caso = 'co-industrias-delta'
+  let step = 0
+  const adapter: LlmAdapter = {
+    provider: 'test', model: 'test',
+    async enviar(messages: Message[]): Promise<LlmResponse> {
+      const toolResult = messages.at(-1)?.content
+      const result = Array.isArray(toolResult) ? toolResult[0] as ToolResultBlock : undefined
+      const data = result ? (JSON.parse(result.content) as { data: unknown }).data : undefined
+      let content: LlmResponse['content']
+      if (step === 0) content = [{ type: 'tool_use', id: 'read', name: 'proveedor_leer_solicitud', input: { caso } }]
+      else if (step === 1) {
+        const fields = structuredClone((data as { campos: CampoSolicitado[] }).campos)
+        fields.pop()
+        content = [{ type: 'tool_use', id: 'map', name: 'proveedor_mapear_campos', input: { caso, campos: fields } }]
+      } else if (step === 2) content = [{ type: 'tool_use', id: 'generate', name: 'proveedor_generar_formulario', input: { caso, mapeo: data } }]
+      else content = [{ type: 'text', text: 'Formulario generado.' }]
+      step++
+      return { content, inputTokens: 10, outputTokens: 10 }
+    }
+  }
+  const runtime = new AgentRuntime(adapter, { directory: ctx.directory, maxIterations: 5, maxSessionTokens: 10000 })
+  const response = await runtime.chat('sesion-test', 'Procesa el caso')
+  const mapped = response.toolCalls.find((call) => call.name === 'proveedor_mapear_campos')
+  const generated = response.toolCalls.find((call) => call.name === 'proveedor_generar_formulario')
+  assert.equal((generated?.result as { ok: boolean }).ok, true)
+  assert.equal((mapped?.arguments as { campos: CampoSolicitado[] }).campos.length, 17)
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.readFile(path.join(ctx.directory, 'out', caso, 'formulario.xlsx'))
+  assert.equal(workbook.getWorksheet('Datos Bancarios')?.getCell('C6').value, 'Periferia IT Group S.A.S.')
+})
+
 test('calcula identidad y bloqueos de firma solo desde reglas deterministas', async () => {
   const expected = {
     'co-industrias-delta': ['soporte_vencido'],
