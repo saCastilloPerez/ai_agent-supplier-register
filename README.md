@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Agente de registro como proveedor
 
 Agente conversacional que lee solicitudes normalizadas, mapea campos contra un maestro, genera formularios y prepara paquetes para firma.
@@ -45,3 +46,6 @@ npm run lint
 ## Link de prueba
 
 Pendiente de configurar en el proveedor de despliegue. La aplicación puede demostrarse localmente sin penalizar funcionalidad; el chat necesita una clave válida y `demo.ts` no.
+=======
+# ai_agent-supplier-register
+>>>>>>> 2c2d94967010ad65fd42eac863cfe559a135f5c5
