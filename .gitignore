@@ -1,0 +1,7 @@
+node_modules/
+out/
+.env
+coverage/
+.perxia/
+PRD-01-agente-registro-proveedor 3.md
+reto-01 1.zip

@@ -1,0 +1,3 @@
+# Registro de proveedores
+
+Las solicitudes contienen país, cliente, formato y soportes. El glosario vincula etiquetas a rutas exactas del maestro. Un valor inexistente queda faltante; no se infiere. Los identificadores tributarios extranjeros usan el NIT colombiano como propuesta y requieren confirmación. Los soportes ausentes o vencidos bloquean la firma, no así los campos faltantes. La información bancaria solo aparece cuando la plantilla la solicita y nunca en el borrador de correo. Los portales no se automatizan. La firma y cualquier envío real son exclusivamente humanos; la simulación requiere confirmación explícita en el turno siguiente.
