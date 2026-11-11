@@ -44,9 +44,11 @@ npm run lint
 | `MAX_ITERATIONS` | Tope del ciclo por turno |
 | `MAX_SESSION_TOKENS` | Presupuesto máximo por sesión |
 | `LLM_TIMEOUT_MS` | Timeout del proveedor |
+| `CHAT_RATE_LIMIT` | Solicitudes máximas por IP en la ventana; predeterminado `20` |
+| `CHAT_RATE_WINDOW_MS` | Ventana del límite en milisegundos; predeterminado `60000` |
 
 ## Link de prueba
 
 Aplicación desplegada: https://aiagent-supplier-register-production.up.railway.app
 
-El chat requiere la configuración privada del proveedor LLM en Railway; `demo.ts` no requiere clave.
+El chat requiere la configuración privada del proveedor LLM en Railway; `demo.ts` no requiere clave. Los artefactos se descargan desde el chat mientras la instancia de Railway conserva `out/`; para producción se requiere almacenamiento persistente u object storage.

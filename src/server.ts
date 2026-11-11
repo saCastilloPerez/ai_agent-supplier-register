@@ -7,12 +7,15 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { OpenCodeGoAdapter } from './llm/anthropic.js'
 import { AgentRuntime } from './agent/runtime.js'
+import { createRateLimit } from './rate-limit.js'
 
 const directory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const prompt = await readFile(path.join(directory, 'agent', 'prompt.md'), 'utf8')
 const model = process.env.OPENCODE_MODEL || 'minimax-m3'
 const apiKey = process.env.OPENCODE_API_KEY ?? ''
 const port = Number(process.env.PORT ?? 3000)
+const chatRateLimit = Number(process.env.CHAT_RATE_LIMIT ?? 20)
+const chatRateWindowMs = Number(process.env.CHAT_RATE_WINDOW_MS ?? 60000)
 const adapter = new OpenCodeGoAdapter(model, prompt, apiKey, Number(process.env.LLM_TIMEOUT_MS ?? 30000))
 const runtime = new AgentRuntime(adapter, {
   directory,
@@ -20,6 +23,7 @@ const runtime = new AgentRuntime(adapter, {
   maxSessionTokens: Number(process.env.MAX_SESSION_TOKENS ?? 30000)
 })
 const app = express()
+app.set('trust proxy', 1)
 app.disable('x-powered-by')
 app.use(express.json({ limit: '32kb' }))
 app.use(express.static(path.join(directory, 'web')))
@@ -81,7 +85,7 @@ app.get('/api/cases/:caso/package.zip', async (request, response) => {
   archive.directory(packageDirectory, 'paquete')
   await archive.finalize()
 })
-app.post('/api/chat', async (request, response) => {
+app.post('/api/chat', createRateLimit(chatRateLimit, chatRateWindowMs), async (request, response) => {
   const parsed = requestSchema.safeParse(request.body)
   if (!parsed.success) return response.status(400).json({ error: 'Solicitud inválida.' })
   const result = await runtime.chat(parsed.data.sessionId, parsed.data.message)
@@ -89,4 +93,4 @@ app.post('/api/chat', async (request, response) => {
 })
 app.use('/api', (_request, response) => response.status(404).json({ error: 'Ruta no encontrada.' }))
 
-app.listen(port, () => console.log(`Agente disponible en http://localhost:${port}`))
+app.listen(port, '0.0.0.0', () => console.log(`Agente disponible en http://localhost:${port}`))

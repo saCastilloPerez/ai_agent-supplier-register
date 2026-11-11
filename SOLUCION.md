@@ -22,7 +22,7 @@ El comportamiento vive en `agent/prompt.md`, el conocimiento en `src/knowledge/r
 
 El backend guarda sesiones en memoria. Por turno envía mensajes y contratos al modelo, valida cada llamada con Zod, ejecuta herramientas y devuelve sus resultados hasta que haya texto final o alcance `MAX_ITERATIONS`. `MAX_SESSION_TOKENS` limita el consumo acumulado. Las llamadas son visibles en el chat y se registran en `out/log.jsonl` y en el log del caso.
 
-La simulación de envío tiene doble barrera: el runtime rechaza llamadas espontáneas del modelo y solo ejecuta la herramienta si el turno anterior dejó confirmación pendiente y el siguiente mensaje es una confirmación inequívoca. No existe envío real.
+La simulación de envío tiene doble barrera: el runtime rechaza llamadas espontáneas del modelo y solo ejecuta la herramienta si el turno anterior dejó confirmación pendiente y el siguiente mensaje es una confirmación inequívoca. No existe envío real. Tras armar el paquete, el servidor construye el cierre con solicitante, proveedor y bloqueos desde resultados deterministas, sin delegar esas reglas al modelo.
 
 ## 4. Elección del modelo
 
@@ -39,6 +39,7 @@ Usaría navegador controlado en modo asistido, no automatización ciega. El agen
 3. **Sesiones en memoria:** se descartó base de datos por estar fuera de alcance; reiniciar borra conversaciones.
 4. **PDF generado:** se descartó AcroForm porque los fixtures describen campos pero no incluyen un PDF editable.
 5. **Fecha real de ejecución:** la vigencia se evalúa contra el reloj del sistema, por lo que resultados históricos pueden cambiar correctamente.
+6. **Artefactos locales descargables:** se habilitaron descargas permitidas y ZIP para facilitar la defensa; se descartó almacenamiento externo por estar fuera de alcance. Una instancia efímera puede perder `out/` tras un redeploy.
 
 ## 7. Supuestos
 
@@ -65,7 +66,8 @@ Se utilizó PERXIA para analizar el PRD, estructurar la solución, implementar T
 
 - **Dato maestro incorrecto:** propiedad formal del dato, versionado y revisión periódica.
 - **Prompt injection en correo:** tratar fixtures como datos y limitar capacidades a herramientas cerradas.
-- **Gasto de API pública:** autenticación, rate limiting, cuotas y límites ya configurables.
+- **Gasto de API pública:** límite por IP configurable, límites de tokens/iteraciones y cuotas del proveedor.
 - **Sesiones perdidas:** persistencia cifrada con retención definida si pasa a producción.
+- **Artefactos efímeros:** un redeploy puede limpiar `out/`; en producción se usa volumen persistente u object storage con retención.
 - **Plantillas complejas:** parser aislado por formato, pruebas doradas y revisión humana.
 - **Datos sensibles en logs:** resúmenes sin valores y política de redacción antes de observabilidad externa.
