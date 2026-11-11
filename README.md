@@ -30,6 +30,9 @@ npm run lint
 - `POST /api/chat`: `{ "sessionId": "...", "message": "..." }`
 - `GET /api/sessions/:id`: historial completo y llamadas a herramientas.
 - `GET /api/health`: proveedor, modelo y estado de configuración sin exponer claves.
+- `GET /api/cases/:caso/artifacts`: artefactos disponibles del caso.
+- `GET /api/cases/:caso/artifacts/:file`: descarga un artefacto permitido.
+- `GET /api/cases/:caso/package.zip`: descarga el paquete completo en ZIP.
 
 ## Variables
 
