@@ -25,7 +25,10 @@ test('prepara los artefactos descargables del paquete', async () => {
   assert.match(await readFile(path.join(ctx.directory, 'out', caso, 'paquete', 'checklist.md'), 'utf8'), /Cámara de Comercio|camara_comercio/)
 })
 
-test('la interfaz presenta los cuatro casos de fixture', async () => {
+test('la interfaz presenta los cuatro casos y refresca descargas tras simular envío', async () => {
   const html = await readFile(path.join(process.cwd(), 'web', 'index.html'), 'utf8')
+  const app = await readFile(path.join(process.cwd(), 'web', 'app.js'), 'utf8')
   for (const label of ['Colombia · Excel', 'Ecuador · PDF', 'Honduras · Excel', 'Panamá · Portal']) assert.match(html, new RegExp(label))
+  assert.match(app, /proveedor_simular_envio/)
+  assert.match(app, /loadDownloads\(caso\)/)
 })
